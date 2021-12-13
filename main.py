@@ -7,41 +7,26 @@ from dash import dcc
 from dash import html
 import pandas as pd
 from dash.dependencies import Input, Output, State
-import cufflinks as cf
 
-# Initialize app
+# Initialize app -------------------------------------------------------------
 
-app = dash.Dash(
-    __name__,
-    meta_tags=[
-        {"name": "viewport", "content": "width=device-width, initial-scale=1.0"}
-    ],
-)
-app.title = "US Opioid Epidemic"
+app = dash.Dash(__name__, meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1.0"}],)
+app.title = "Covid 19 vaccination data"
 server = app.server
 
-# Load data
+# Load data --------------------------------------------------------------------
 
 APP_PATH = str(pathlib.Path(__file__).parent.resolve())
 
-df_lat_lon = pd.read_csv(
-    os.path.join(APP_PATH, os.path.join("data", "lat_lon_counties.csv"))
-)
+df_lat_lon = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", "lat_lon_counties.csv")))
 df_lat_lon["FIPS "] = df_lat_lon["FIPS "].apply(lambda x: str(x).zfill(5))
 
-df_full_data = pd.read_csv(
-    os.path.join(
-        APP_PATH, os.path.join("data", "age_adjusted_death_rate_no_quotes.csv")
-    )
-)
-df_full_data["County Code"] = df_full_data["County Code"].apply(
-    lambda x: str(x).zfill(5)
-)
-df_full_data["County"] = (
-    df_full_data["Unnamed: 0"] + ", " + df_full_data.County.map(str)
-)
+df_full_data = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", "age_adjusted_death_rate_no_quotes.csv")))
+df_full_data["County Code"] = df_full_data["County Code"].apply(lambda x: str(x).zfill(5))
+df_full_data["County"] = (df_full_data["Unnamed: 0"] + ", " + df_full_data.County.map(str))
 
-YEARS = [2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011, 2012, 2013, 2014, 2015]
+YEARS = [2003, 2004, 2005]
+countries = ['India', 'Germany']
 
 BINS = [
     "0-2",
@@ -106,13 +91,14 @@ app.layout = html.Div(
                     html.Button("Source Code", className="link-button"),
                     href="https://github.com/FabianHeu/DataScienceProject",
                 ),
-                html.H4(children="Rate of US Poison-Induced Deaths"),
+                html.H4(children="Covid 19 vaccination data. India compared to Germany"),
                 html.P(
                     id="description",
-                    children="† Deaths are classified using the International Classification of Diseases, \
-                    Tenth Revision (ICD–10). Drug-poisoning deaths are defined as having ICD–10 underlying \
-                    cause-of-death codes X40–X44 (unintentional), X60–X64 (suicide), X85 (homicide), or Y10–Y14 \
-                    (undetermined intent).",
+                    children="Based on the dataset “India's Vaccination (1 billion glory doses)” I want to show the"
+                             " vaccination process in India. The dataset has 44 columns and approx. 2 years of data."
+                             " It starts from 2020-01-30 until 2021-11-13. I will compare this data to the data acquired"
+                             " in Germany. The vaccination data for Germany will be received from the Robert-Koch-Institut"
+                             " and the Department of Health.",
                 ),
             ],
         ),
