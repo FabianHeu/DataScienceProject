@@ -1,440 +1,182 @@
-import os
-import pathlib
-import re
-
 import dash
 from dash import dcc
 from dash import html
+from dash.dependencies import Input, Output
+import plotly.express as px
+from plotly import graph_objs as go
 import pandas as pd
-from dash.dependencies import Input, Output, State
+import numpy as np
+from datetime import datetime
+
 
 # Initialize app -------------------------------------------------------------
-
-app = dash.Dash(__name__, meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1.0"}],)
+app = dash.Dash(__name__, meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1.0"}], )
 app.title = "Covid 19 vaccination data"
 server = app.server
 
-# Load data --------------------------------------------------------------------
+# ######################## Load my own data ###################################################################
+# data from 'our world in Data'
+dataframeGlobal = pd.read_csv('https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv')
+columnsList = dataframeGlobal.columns
+dataframeFiltered = dataframeGlobal[dataframeGlobal.date.eq('2021-12-16')]
+dfNZ = dataframeGlobal[dataframeGlobal['location'] == 'New Zealand']
 
-APP_PATH = str(pathlib.Path(__file__).parent.resolve())
+# #############################################################################################################
 
-df_lat_lon = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", "lat_lon_counties.csv")))
-df_lat_lon["FIPS "] = df_lat_lon["FIPS "].apply(lambda x: str(x).zfill(5))
-
-df_full_data = pd.read_csv(os.path.join(APP_PATH, os.path.join("data", "age_adjusted_death_rate_no_quotes.csv")))
-df_full_data["County Code"] = df_full_data["County Code"].apply(lambda x: str(x).zfill(5))
-df_full_data["County"] = (df_full_data["Unnamed: 0"] + ", " + df_full_data.County.map(str))
-
-YEARS = [2003, 2004, 2005]
-countries = ['India', 'Germany']
-
-BINS = [
-    "0-2",
-    "2.1-4",
-    "4.1-6",
-    "6.1-8",
-    "8.1-10",
-    "10.1-12",
-    "12.1-14",
-    "14.1-16",
-    "16.1-18",
-    "18.1-20",
-    "20.1-22",
-    "22.1-24",
-    "24.1-26",
-    "26.1-28",
-    "28.1-30",
-    ">30",
-]
-
-DEFAULT_COLORSCALE = [
-    "#f2fffb",
-    "#bbffeb",
-    "#98ffe0",
-    "#79ffd6",
-    "#6df0c8",
-    "#69e7c0",
-    "#59dab2",
-    "#45d0a5",
-    "#31c194",
-    "#2bb489",
-    "#25a27b",
-    "#1e906d",
-    "#188463",
-    "#157658",
-    "#11684d",
-    "#10523e",
-]
-
-DEFAULT_OPACITY = 0.8
-
-mapbox_access_token = "pk.eyJ1IjoicGxvdGx5bWFwYm94IiwiYSI6ImNrOWJqb2F4djBnMjEzbG50amg0dnJieG4ifQ.Zme1-Uzoi75IaFbieBDl3A"
-mapbox_style = "mapbox://styles/plotlymapbox/cjvprkf3t1kns1cqjxuxmwixz"
-
-# App layout
-
+# Layout of Dash App
 app.layout = html.Div(
-    id="root",
     children=[
         html.Div(
-            id="header",
+            className="row",
             children=[
-                html.A(
-                    html.Img(id="logo", src=app.get_asset_url("oth-logo.png")),
-                    href="https://www.oth-regensburg.de",
-                ),
-                html.A(
-                    html.Button("Enterprise Demo", className="link-button"),
-                    href="https://plotly.com/get-demo/",
-                ),
-                html.A(
-                    html.Button("Source Code", className="link-button"),
-                    href="https://github.com/FabianHeu/DataScienceProject",
-                ),
-                html.H4(children="Covid 19 vaccination data. India compared to Germany"),
-                html.P(
-                    id="description",
-                    children="Based on the dataset “India's Vaccination (1 billion glory doses)” I want to show the"
-                             " vaccination process in India. The dataset has 44 columns and approx. 2 years of data."
-                             " It starts from 2020-01-30 until 2021-11-13. I will compare this data to the data acquired"
-                             " in Germany. The vaccination data for Germany will be received from the Robert-Koch-Institut"
-                             " and the Department of Health.",
-                ),
-            ],
-        ),
-        html.Div(
-            id="app-container",
-            children=[
+                # Column for user controls
                 html.Div(
-                    id="left-column",
+                    className="four columns div-user-controls",
                     children=[
-                        html.Div(
-                            id="slider-container",
-                            children=[
-                                html.P(
-                                    id="slider-text",
-                                    children="Drag the slider to change the year:",
-                                ),
-                                dcc.Slider(
-                                    id="years-slider",
-                                    min=min(YEARS),
-                                    max=max(YEARS),
-                                    value=min(YEARS),
-                                    marks={
-                                        str(year): {
-                                            "label": str(year),
-                                            "style": {"color": "#7fafdf"},
-                                        }
-                                        for year in YEARS
-                                    },
-                                ),
-                            ],
-                        ),
-                        html.Div(
-                            id="heatmap-container",
-                            children=[
-                                html.P(
-                                    "Heatmap of age adjusted mortality rates \
-                            from poisonings in year {0}".format(
-                                        min(YEARS)
-                                    ),
-                                    id="heatmap-title",
-                                ),
-                                dcc.Graph(
-                                    id="county-choropleth",
-                                    figure=dict(
-                                        layout=dict(
-                                            mapbox=dict(
-                                                layers=[],
-                                                accesstoken=mapbox_access_token,
-                                                style=mapbox_style,
-                                                center=dict(
-                                                    lat=38.72490, lon=-95.61446
-                                                ),
-                                                pitch=0,
-                                                zoom=3.5,
-                                            ),
-                                            autosize=True,
-                                        ),
-                                    ),
-                                ),
-                            ],
-                        ),
-                    ],
-                ),
-                html.Div(
-                    id="graph-container",
-                    children=[
-                        html.P(id="chart-selector", children="Select chart:"),
-                        dcc.Dropdown(
-                            options=[
-                                {
-                                    "label": "Histogram of total number of deaths (single year)",
-                                    "value": "show_absolute_deaths_single_year",
-                                },
-                                {
-                                    "label": "Histogram of total number of deaths (1999-2016)",
-                                    "value": "absolute_deaths_all_time",
-                                },
-                                {
-                                    "label": "Age-adjusted death rate (single year)",
-                                    "value": "show_death_rate_single_year",
-                                },
-                                {
-                                    "label": "Trends in age-adjusted death rate (1999-2016)",
-                                    "value": "death_rate_all_time",
-                                },
-                            ],
-                            value="show_death_rate_single_year",
-                            id="chart-dropdown",
-                        ),
-                        dcc.Graph(
-                            id="selected-data",
-                            figure=dict(
-                                data=[dict(x=0, y=0)],
-                                layout=dict(
-                                    paper_bgcolor="#F4F4F8",
-                                    plot_bgcolor="#F4F4F8",
-                                    autofill=True,
-                                    margin=dict(t=75, r=50, b=100, l=50),
-                                ),
+                        html.A(
+                            html.Img(
+                                className="logo",
+                                src=app.get_asset_url("oth-logo.png"),
                             ),
+                            href="https://www.oth-regensburg.de",
+                        ),
+                        html.H2("Covid -19 Dashboard"),
+                        html.P(
+                            """Select different days using the date picker or by selecting
+                            different time frames on the histogram."""
+                        ),
+                        html.Div(
+                            className="div-for-dropdown",
+                            children=[
+                                dcc.DatePickerSingle(
+                                    id="date-picker",
+                                    min_date_allowed=datetime(2020, 1, 1),
+                                    max_date_allowed=datetime(2021, 9, 30),
+                                    initial_visible_month=datetime(2020, 1, 1),
+                                    date=datetime(2020, 1, 1).date(),
+                                    display_format="MMMM D, YYYY",
+                                    style={"border": "0px solid black"},
+                                )
+                            ],
+                        ),
+                        # Change to side-by-side for mobile layout
+                        html.Div(
+                            className="row",
+                            children=[
+                                html.Div(
+                                    className="div-for-dropdown",
+                                    children=[
+                                        # Dropdown for locations on map
+                                        dcc.Dropdown(
+                                            id="location-dropdown",
+                                            options=[{'label': i, 'value': i} for i in dataframeGlobal['location'].unique()],
+                                            placeholder="Select a location",
+                                            value='Germany'
+
+                                        )
+                                    ],
+                                ),
+                                html.Div(
+                                    className="div-for-dropdown",
+                                    children=[
+                                        # Dropdown to select times
+                                        dcc.Dropdown(
+                                            id="data-dropdown",
+                                            options=[{'label': i, 'value': i} for i in columnsList],
+                                            multi=False,
+                                            placeholder="Select data",
+                                            value='total_cases_per_million'
+                                        )
+                                    ],
+                                ),
+                            ],
+                        ),
+                        html.P(id="total-rides"),
+                        html.P(id="total-rides-selection"),
+                        html.P(id="date-value"),
+                        dcc.Markdown(
+                            """
+                            Source: [Github](https://github.com/FabianHeu/DataScienceProject)
+                            """
                         ),
                     ],
                 ),
+                # Column for app graphs and plots
+                html.Div(
+                    className="eight columns div-for-charts bg-grey",
+                    children=[
+                        dcc.Graph(id="worldmap"),
+                        dcc.Graph(id="graph"),
+                    ],
+                ),
             ],
-        ),
-    ],
+        )
+    ]
 )
+
+@app.callback(
+    Output(component_id="worldmap", component_property="figure"),
+    Input(component_id="location-dropdown", component_property="value")
+)
+def update_worldmap(selected):
+    worldmap = px.choropleth(
+        locations=dataframeFiltered['iso_code'],
+        z=np.log(dataframeFiltered['male_smokers']),
+        text=dataframeFiltered['location'],
+        hoverinfo="text",
+        marker_line_color='white',
+        autocolorscale=False,
+        reversescale=True,
+        colorscale="Viridis",
+        marker={'line': {'color': 'rgb(180,180,180)', 'width': 0.5}},
+        colorbar={"thickness": 10, "len": 0.3, "x": 0.9, "y": 0.7,
+                  'title': {"text": 'persons', "side": "bottom"}, 'tickvals': [2, 10],
+                  'ticktext': ['100', '100,000']})
+    return {
+        "data": [worldmap],
+        "layout": go.Layout(
+            autosize=False,
+            geo={'showframe': False,
+                 'showcoastlines': True,
+                 'projection': {'type': "miller"},
+                 'bgcolor': 'rgba(0,0,0,0)',
+                 # 'center': {"lat": 37.0902, "lon": -95.7129}
+                 },
+            paper_bgcolor='rgba(0,0,0,0)',
+            width=400,
+            margin=dict(l=0, r=0, t=0, b=0),
+        )
+    }
 
 
 @app.callback(
-    Output("county-choropleth", "figure"),
-    [Input("years-slider", "value")],
-    [State("county-choropleth", "figure")],
+    Output(component_id="graph", component_property="figure"),
+    Input(component_id="data-dropdown", component_property="value"),
+    Input(component_id="location-dropdown", component_property="value")
 )
-def display_map(year, figure):
-    cm = dict(zip(BINS, DEFAULT_COLORSCALE))
-
-    data = [
-        dict(
-            lat=df_lat_lon["Latitude "],
-            lon=df_lat_lon["Longitude"],
-            text=df_lat_lon["Hover"],
-            type="scattermapbox",
-            hoverinfo="text",
-            marker=dict(size=5, color="white", opacity=0),
-        )
-    ]
-
-    annotations = [
-        dict(
-            showarrow=False,
-            align="right",
-            text="<b>Age-adjusted death rate<br>per county per year</b>",
-            font=dict(color="#2cfec1"),
-            bgcolor="#1f2630",
-            x=0.95,
-            y=0.95,
-        )
-    ]
-
-    for i, bin in enumerate(reversed(BINS)):
-        color = cm[bin]
-        annotations.append(
-            dict(
-                arrowcolor=color,
-                text=bin,
-                x=0.95,
-                y=0.85 - (i / 20),
-                ax=-60,
-                ay=0,
-                arrowwidth=5,
-                arrowhead=0,
-                bgcolor="#1f2630",
-                font=dict(color="#2cfec1"),
-            )
-        )
-
-    if "layout" in figure:
-        lat = figure["layout"]["mapbox"]["center"]["lat"]
-        lon = figure["layout"]["mapbox"]["center"]["lon"]
-        zoom = figure["layout"]["mapbox"]["zoom"]
-    else:
-        lat = 38.72490
-        lon = -95.61446
-        zoom = 3.5
-
-    layout = dict(
-        mapbox=dict(
-            layers=[],
-            accesstoken=mapbox_access_token,
-            style=mapbox_style,
-            center=dict(lat=lat, lon=lon),
-            zoom=zoom,
+def update_selection(data, country):
+    graph = px.area(
+        data_frame=dataframeGlobal[dataframeGlobal['location'] == country],
+        x='date',
+        y=data,
+    )
+    graph.update_layout(
+        showlegend=False,
+        plot_bgcolor='rgba(0,0,0,0)',
+        margin=dict(t=0, l=0, b=0, r=0),
+        paper_bgcolor='rgba(0,0,0,0)',
+        xaxis=dict(
+            showline=False,
+            showgrid=False,
         ),
-        hovermode="closest",
-        margin=dict(r=0, l=0, t=0, b=0),
-        annotations=annotations,
-        dragmode="lasso",
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
+        ),
     )
-
-    base_url = "https://raw.githubusercontent.com/jackparmer/mapbox-counties/master/"
-    for bin in BINS:
-        geo_layer = dict(
-            sourcetype="geojson",
-            source=base_url + str(year) + "/" + bin + ".geojson",
-            type="fill",
-            color=cm[bin],
-            opacity=DEFAULT_OPACITY,
-            # CHANGE THIS
-            fill=dict(outlinecolor="#afafaf"),
-        )
-        layout["mapbox"]["layers"].append(geo_layer)
-
-    fig = dict(data=data, layout=layout)
-    return fig
-
-
-@app.callback(Output("heatmap-title", "children"), [Input("years-slider", "value")])
-def update_map_title(year):
-    return "Heatmap of age adjusted mortality rates \
-				from poisonings in year {0}".format(
-        year
-    )
-
-
-@app.callback(
-    Output("selected-data", "figure"),
-    [
-        Input("county-choropleth", "selectedData"),
-        Input("chart-dropdown", "value"),
-        Input("years-slider", "value"),
-    ],
-)
-def display_selected_data(selectedData, chart_dropdown, year):
-    if selectedData is None:
-        return dict(
-            data=[dict(x=0, y=0)],
-            layout=dict(
-                title="Click-drag on the map to select counties",
-                paper_bgcolor="#1f2630",
-                plot_bgcolor="#1f2630",
-                font=dict(color="#2cfec1"),
-                margin=dict(t=75, r=50, b=100, l=75),
-            ),
-        )
-    pts = selectedData["points"]
-    fips = [str(pt["text"].split("<br>")[-1]) for pt in pts]
-    for i in range(len(fips)):
-        if len(fips[i]) == 4:
-            fips[i] = "0" + fips[i]
-    dff = df_full_data[df_full_data["County Code"].isin(fips)]
-    dff = dff.sort_values("Year")
-
-    regex_pat = re.compile(r"Unreliable", flags=re.IGNORECASE)
-    dff["Age Adjusted Rate"] = dff["Age Adjusted Rate"].replace(regex_pat, 0)
-
-    if chart_dropdown != "death_rate_all_time":
-        title = "Absolute deaths per county, <b>1999-2016</b>"
-        AGGREGATE_BY = "Deaths"
-        if "show_absolute_deaths_single_year" == chart_dropdown:
-            dff = dff[dff.Year == year]
-            title = "Absolute deaths per county, <b>{0}</b>".format(year)
-        elif "show_death_rate_single_year" == chart_dropdown:
-            dff = dff[dff.Year == year]
-            title = "Age-adjusted death rate per county, <b>{0}</b>".format(year)
-            AGGREGATE_BY = "Age Adjusted Rate"
-
-        dff[AGGREGATE_BY] = pd.to_numeric(dff[AGGREGATE_BY], errors="coerce")
-        deaths_or_rate_by_fips = dff.groupby("County")[AGGREGATE_BY].sum()
-        deaths_or_rate_by_fips = deaths_or_rate_by_fips.sort_values()
-        # Only look at non-zero rows:
-        deaths_or_rate_by_fips = deaths_or_rate_by_fips[deaths_or_rate_by_fips > 0]
-        fig = deaths_or_rate_by_fips.iplot(
-            kind="bar", y=AGGREGATE_BY, title=title, asFigure=True
-        )
-
-        fig_layout = fig["layout"]
-        fig_data = fig["data"]
-
-        fig_data[0]["text"] = deaths_or_rate_by_fips.values.tolist()
-        fig_data[0]["marker"]["color"] = "#2cfec1"
-        fig_data[0]["marker"]["opacity"] = 1
-        fig_data[0]["marker"]["line"]["width"] = 0
-        fig_data[0]["textposition"] = "outside"
-        fig_layout["paper_bgcolor"] = "#1f2630"
-        fig_layout["plot_bgcolor"] = "#1f2630"
-        fig_layout["font"]["color"] = "#2cfec1"
-        fig_layout["title"]["font"]["color"] = "#2cfec1"
-        fig_layout["xaxis"]["tickfont"]["color"] = "#2cfec1"
-        fig_layout["yaxis"]["tickfont"]["color"] = "#2cfec1"
-        fig_layout["xaxis"]["gridcolor"] = "#5b5b5b"
-        fig_layout["yaxis"]["gridcolor"] = "#5b5b5b"
-        fig_layout["margin"]["t"] = 75
-        fig_layout["margin"]["r"] = 50
-        fig_layout["margin"]["b"] = 100
-        fig_layout["margin"]["l"] = 50
-
-        return fig
-
-    fig = dff.iplot(
-        kind="area",
-        x="Year",
-        y="Age Adjusted Rate",
-        text="County",
-        categories="County",
-        colors=[
-            "#1b9e77",
-            "#d95f02",
-            "#7570b3",
-            "#e7298a",
-            "#66a61e",
-            "#e6ab02",
-            "#a6761d",
-            "#666666",
-            "#1b9e77",
-        ],
-        vline=[year],
-        asFigure=True,
-    )
-
-    for i, trace in enumerate(fig["data"]):
-        trace["mode"] = "lines+markers"
-        trace["marker"]["size"] = 4
-        trace["marker"]["line"]["width"] = 1
-        trace["type"] = "scatter"
-        for prop in trace:
-            fig["data"][i][prop] = trace[prop]
-
-    # Only show first 500 lines
-    fig["data"] = fig["data"][0:500]
-
-    fig_layout = fig["layout"]
-
-    # See plot.ly/python/reference
-    fig_layout["yaxis"]["title"] = "Age-adjusted death rate per county per year"
-    fig_layout["xaxis"]["title"] = ""
-    fig_layout["yaxis"]["fixedrange"] = True
-    fig_layout["xaxis"]["fixedrange"] = False
-    fig_layout["hovermode"] = "closest"
-    fig_layout["title"] = "<b>{0}</b> counties selected".format(len(fips))
-    fig_layout["legend"] = dict(orientation="v")
-    fig_layout["autosize"] = True
-    fig_layout["paper_bgcolor"] = "#1f2630"
-    fig_layout["plot_bgcolor"] = "#1f2630"
-    fig_layout["font"]["color"] = "#2cfec1"
-    fig_layout["xaxis"]["tickfont"]["color"] = "#2cfec1"
-    fig_layout["yaxis"]["tickfont"]["color"] = "#2cfec1"
-    fig_layout["xaxis"]["gridcolor"] = "#5b5b5b"
-    fig_layout["yaxis"]["gridcolor"] = "#5b5b5b"
-
-    if len(fips) > 500:
-        fig["layout"][
-            "title"
-        ] = "Age-adjusted death rate per county per year <br>(only 1st 500 shown)"
-
-    return fig
+    return graph
 
 
 if __name__ == "__main__":
