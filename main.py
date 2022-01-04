@@ -116,37 +116,33 @@ app.layout = html.Div(
 
 @app.callback(
     Output(component_id="worldmap", component_property="figure"),
-    Input(component_id="location-dropdown", component_property="value")
+
+    Input(component_id="location-dropdown", component_property="value"),
+    Input(component_id="data-dropdown", component_property="value"),
+
 )
-def update_worldmap(selected):
+def update_worldmap(location, data):
+    dataframeFiltered = dataframeGlobal[dataframeGlobal.date.eq('2021-12-16')]
     worldmap = px.choropleth(
-        locations=dataframeFiltered['iso_code'],
-        z=np.log(dataframeFiltered['male_smokers']),
-        text=dataframeFiltered['location'],
-        hoverinfo="text",
-        marker_line_color='white',
-        autocolorscale=False,
-        reversescale=True,
-        colorscale="Viridis",
-        marker={'line': {'color': 'rgb(180,180,180)', 'width': 0.5}},
-        colorbar={"thickness": 10, "len": 0.3, "x": 0.9, "y": 0.7,
-                  'title': {"text": 'persons', "side": "bottom"}, 'tickvals': [2, 10],
-                  'ticktext': ['100', '100,000']})
-    return {
-        "data": [worldmap],
-        "layout": go.Layout(
-            autosize=False,
-            geo={'showframe': False,
-                 'showcoastlines': True,
-                 'projection': {'type': "miller"},
-                 'bgcolor': 'rgba(0,0,0,0)',
-                 # 'center': {"lat": 37.0902, "lon": -95.7129}
-                 },
-            paper_bgcolor='rgba(0,0,0,0)',
-            width=400,
-            margin=dict(l=0, r=0, t=0, b=0),
-        )
-    }
+        data_frame=dataframeFiltered,
+        locations='iso_code',
+        hover_name='location',
+        color=data,
+        color_continuous_scale=px.colors.sequential.Viridis,
+    )
+    worldmap.update_layout(
+        showlegend=False,
+        margin=dict(t=0, l=0, b=0, r=0),
+        geo=dict(bgcolor='rgba(0,0,0,0)'),
+        paper_bgcolor='rgba(0,0,0,0)',
+        coloraxis_showscale=False
+    )
+    worldmap.update_geos(
+        showlakes=False,
+        visible=False,
+    )
+
+    return worldmap
 
 
 @app.callback(
@@ -168,12 +164,15 @@ def update_selection(data, country):
         xaxis=dict(
             showline=False,
             showgrid=False,
+            title='',
+            tickfont=dict(size=15, family='verdana', color='rgba(0,162,137,100)'),
         ),
         yaxis=dict(
             showgrid=False,
             zeroline=False,
             showline=False,
             showticklabels=False,
+            title='',
         ),
     )
     return graph
