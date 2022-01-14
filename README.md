@@ -18,6 +18,8 @@ https://github.com/owid/covid-19-data/
 
 https://github.com/owid/covid-19-data/blob/master/public/data/README.md
 
+https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/owid-covid-data.csv
+
 ## All Available Colums in the Dataset:   
 ['iso_code', 'continent', 'location', 'date', 'total_cases', 'new_cases',
 'new_cases_smoothed', 'total_deaths', 'new_deaths',
@@ -66,8 +68,10 @@ The results should be presented as a python dashboard.
 
 1. Clone the gitHub repository:  
     ``` >> git clone https://github.com/FabianHeu/DataScienceProject.git ```
-3. run the python script main.py  
+2. Run the python script main.py  
     ``` >> python main.py```
+3. Check out the dash server on your browser
+http://127.0.0.1:8050/
 
 
 ## Sources:

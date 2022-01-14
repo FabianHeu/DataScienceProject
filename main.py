@@ -106,11 +106,10 @@ app.layout = html.Div(
 # call back to update the worldmap
 @app.callback(
     Output(component_id="worldmap", component_property="figure"),
-    Input(component_id="location-dropdown", component_property="value"),
     Input(component_id="data-dropdown", component_property="value"),
 
 )
-def update_worldmap(location, data):
+def update_worldmap(data):
     dataframeFiltered = dataframeGlobal[dataframeGlobal.date.eq(today)]
     worldmap = px.choropleth(
         data_frame=dataframeFiltered,
