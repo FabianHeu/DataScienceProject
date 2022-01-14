@@ -84,3 +84,5 @@ https://dash.gallery/dash-uber-rides-demo/
 
 To test single functions and play around with the code there is jupyter notbook called main.ipynb in the jupyter subfolder.   
 ```>> jupyter notebook main.ipynb```
+
+![alt text](assets/img.png "Title")
